@@ -1,1 +1,28 @@
-.class
+.class 
+ 
+# Maven / build output 
+**/target/ 
+**/*.log 
+ 
+# IntelliJ / Eclipse / VS Code 
+**/.idea/ 
+**/*.iml 
+**/.classpath 
+**/.project 
+**/.settings/ 
+.vscode/ 
+ 
+# OS 
+.DS_Store 
+Thumbs.db 
+ 
+# Secrets (do not commit) 
+**/src/main/resources/application.properties 
+**/src/main/resources/application-*.properties 
+**/src/main/resources/application.yml 
+**/src/main/resources/application-*.yml 
+**/src/main/resources/application.yaml 
+**/src/main/resources/application-*.yaml 
+ 
+# Ignore leftover old folder if it cannot be deleted yet 
+/platform/
