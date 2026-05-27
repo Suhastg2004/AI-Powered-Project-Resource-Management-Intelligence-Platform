@@ -6,9 +6,11 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());
-app.use(express.json()); // Parses incoming JSON payloads
+app.use(express.json());
 
 const server = http.createServer(app);
+
+// 🔒 SECURITY UPDATE: Lock CORS back down to the React frontend URL
 // const io = new Server(server, {
 //     cors: {
 //         origin: process.env.FRONTEND_URL || "http://localhost:3000",
@@ -16,103 +18,72 @@ const server = http.createServer(app);
 //         credentials: true
 //     }
 // });
+
 // Temporarily allow ALL origins so our local HTML file can connect
 const io = new Server(server, {
     cors: {
         origin: "*", 
         methods: ["GET", "POST"]
-        // Note: I temporarily removed 'credentials: true' because 
-        // Socket.IO doesn't allow it when origin is set to "*"
     }
 });
 
 io.on('connection', (socket) => {
-    console.log(`[+] New React client connected: ${socket.id}`);
+    console.log(`[+] React client connected: ${socket.id}`);
     
     socket.on('disconnect', () => {
         console.log(`[-] React client disconnected: ${socket.id}`);
     });
 });
 
-// ==========================================
-// MICROSERVICE ENDPOINTS (Listens to Spring Boot / Python)
-// ==========================================
+// 🔒 SECURITY MIDDLEWARE
+const verifyApiKey = (req, res, next) => {
+    const providedKey = req.headers['x-api-key'];
+    
+    if (!providedKey || providedKey !== process.env.INTERNAL_API_KEY) {
+        console.warn(`[!] Unauthorized access attempt blocked.`);
+        return res.status(403).json({ success: false, error: 'Forbidden: Invalid or missing API Key' });
+    }
+    
+    next(); // Key is valid, proceed to the route
+};
 
-// 1. New Task Assigned [cite: 334]
-app.post('/api/notify/task-assigned', (req, res) => {
+// MICROSERVICE ENDPOINTS (Protected)(using api key)
+
+app.post('/api/notify/task-assigned', verifyApiKey, (req, res) => {
     const { taskId, developerId, title } = req.body;
-    
-    // Broadcast to the frontend
-    io.emit('taskAssigned', { 
-        taskId, 
-        developerId, 
-        message: `New task assigned: ${title}` 
-    });
-    
-    res.status(200).json({ success: true, message: 'taskAssigned broadcasted' });
+    io.emit('taskAssigned', { taskId, developerId, message: `New task assigned: ${title}` });
+    res.status(200).json({ success: true, message: 'Broadcasted securely' });
 });
 
-// 2. Task Status Updated [cite: 334]
-app.post('/api/notify/task-status', (req, res) => {
+app.post('/api/notify/task-status', verifyApiKey, (req, res) => {
     const { taskId, status } = req.body;
-    
-    io.emit('taskStatusUpdated', { 
-        taskId, 
-        status, 
-        message: `Task ${taskId} moved to ${status}` 
-    });
-    
-    res.status(200).json({ success: true, message: 'taskStatusUpdated broadcasted' });
+    io.emit('taskStatusUpdated', { taskId, status, message: `Task ${taskId} moved to ${status}` });
+    res.status(200).json({ success: true, message: 'Broadcasted securely' });
 });
 
-// 3. Manager Feedback Added [cite: 334]
-app.post('/api/notify/feedback', (req, res) => {
+app.post('/api/notify/feedback', verifyApiKey, (req, res) => {
     const { developerId, managerId, comments } = req.body;
-    
-    io.emit('managerFeedbackAdded', { 
-        developerId, 
-        managerId, 
-        message: 'New feedback received from manager' 
-    });
-    
-    res.status(200).json({ success: true, message: 'managerFeedbackAdded broadcasted' });
+    io.emit('managerFeedbackAdded', { developerId, managerId, message: 'New feedback received' });
+    res.status(200).json({ success: true, message: 'Broadcasted securely' });
 });
 
-// 4. Delay Risk Prediction Generated (Called by Python Service) [cite: 334]
-app.post('/api/notify/prediction', (req, res) => {
+app.post('/api/notify/prediction', verifyApiKey, (req, res) => {
     const { projectId, delay_probability, status } = req.body;
-    
-    io.emit('predictionGenerated', { 
-        projectId, 
-        delay_probability, 
-        status, 
-        message: `Project ${projectId} risk updated: ${status}` 
-    });
-    
-    res.status(200).json({ success: true, message: 'predictionGenerated broadcasted' });
+    io.emit('predictionGenerated', { projectId, delay_probability, status, message: `Risk updated: ${status}` });
+    res.status(200).json({ success: true, message: 'Broadcasted securely' });
 });
 
-// 5. Sprint Deadline Alert [cite: 334]
-app.post('/api/notify/deadline', (req, res) => {
+app.post('/api/notify/deadline', verifyApiKey, (req, res) => {
     const { sprintId, daysRemaining } = req.body;
-    
-    io.emit('sprintDeadlineAlert', { 
-        sprintId, 
-        daysRemaining, 
-        message: `Warning: Sprint ends in ${daysRemaining} days!` 
-    });
-    
-    res.status(200).json({ success: true, message: 'sprintDeadlineAlert broadcasted' });
+    io.emit('sprintDeadlineAlert', { sprintId, daysRemaining, message: `Sprint ends in ${daysRemaining} days!` });
+    res.status(200).json({ success: true, message: 'Broadcasted securely' });
 });
 
-// ==========================================
-// HEALTH CHECK
-// ==========================================
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'Notification Service is actively running.' });
 });
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-    console.log(`🚀 Real-time Notification Service running on port ${PORT}`);
+    console.log(`🚀 Secured Notification Service running on port ${PORT}`);
 });
