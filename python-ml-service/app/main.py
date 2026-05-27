@@ -2,16 +2,22 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.ml_model import (
     DEFAULT_DATASET_PATH,
-    PredictionResult,
     ensure_dataset,
     predict_with_model,
     train_model,
+)
+
+from app.analytics import (
+    get_at_risk_projects,
+    get_delay_risk_per_project,
+    get_developer_utilization_heatmap,
+    get_sprint_velocity_trends,
 )
 
 app = FastAPI(title="Project Intelligence ML Service", version="0.1.0")
@@ -48,6 +54,30 @@ class PredictionResponse(BaseModel):
     delay_probability: int
     status: str
     risk_level: Literal["LOW", "MODERATE", "HIGH"]
+
+
+class ProjectDelayRiskRow(BaseModel):
+    project_id: int
+    project_name: str | None = None
+    delay_probability: int
+    status: str
+    risk_level: Literal["LOW", "MODERATE", "HIGH"]
+
+
+class SprintVelocityRow(BaseModel):
+    project_id: int
+    sprint_name: str
+    start_date: str
+    end_date: str
+    velocity: float
+
+
+class DeveloperUtilizationRow(BaseModel):
+    project_id: int
+    developer_id: int
+    developer_name: str
+    sprint_name: str
+    utilization_pct: float
 
 
 def rule_based_prediction(payload: PredictionRequest) -> PredictionResponse:
@@ -93,6 +123,64 @@ def model_info() -> dict:
         "model_ready": MODEL_ARTIFACTS is not None,
         "model_error": MODEL_ERROR,
     }
+
+
+def _predict_single(velocity: float, completion_rate: float, utilization: float, days_remaining: int) -> dict:
+    payload = PredictionRequest(
+        sprint_velocity=velocity,
+        task_completion_rate=completion_rate,
+        team_utilization=utilization,
+        days_remaining=days_remaining,
+    )
+
+    if PREDICTION_MODE == "ML" and MODEL_ARTIFACTS is not None:
+        result = predict_with_model(
+            MODEL_ARTIFACTS,
+            sprint_velocity=payload.sprint_velocity,
+            task_completion_rate=payload.task_completion_rate,
+            team_utilization=payload.team_utilization,
+            days_remaining=payload.days_remaining,
+        )
+        return {
+            "delay_probability": result.delay_probability,
+            "status": result.status,
+            "risk_level": result.risk_level,
+        }
+
+    rule = rule_based_prediction(payload)
+    return {
+        "delay_probability": rule.delay_probability,
+        "status": rule.status,
+        "risk_level": rule.risk_level,
+    }
+
+
+@app.get("/analytics/delay-risk-per-project", response_model=list[ProjectDelayRiskRow])
+def analytics_delay_risk_per_project() -> list[dict]:
+    base = Path(__file__).resolve().parents[1] / "data"
+    return get_delay_risk_per_project(
+        projects_path=base / "projects.csv",
+        metrics_path=base / "project_metrics.csv",
+        predict_fn=_predict_single,
+    )
+
+
+@app.get("/analytics/at-risk-projects", response_model=list[ProjectDelayRiskRow])
+def analytics_at_risk_projects(threshold: int = Query(70, ge=1, le=99)) -> list[dict]:
+    rows = analytics_delay_risk_per_project()
+    return get_at_risk_projects(rows, threshold=threshold)
+
+
+@app.get("/analytics/sprint-velocity", response_model=list[SprintVelocityRow])
+def analytics_sprint_velocity(project_id: int | None = Query(None, ge=1)) -> list[dict]:
+    base = Path(__file__).resolve().parents[1] / "data"
+    return get_sprint_velocity_trends(base / "sprints.csv", project_id=project_id)
+
+
+@app.get("/analytics/developer-utilization", response_model=list[DeveloperUtilizationRow])
+def analytics_developer_utilization(project_id: int | None = Query(None, ge=1)) -> list[dict]:
+    base = Path(__file__).resolve().parents[1] / "data"
+    return get_developer_utilization_heatmap(base / "developer_utilization.csv", project_id=project_id)
 
 
 @app.post("/predict", response_model=PredictionResponse)

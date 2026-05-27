@@ -17,6 +17,7 @@ FEATURE_COLUMNS = [
     "team_utilization",
     "days_remaining",
 ]
+
 LABEL_COLUMN = "risk_label"
 LABELS = ["LOW", "MODERATE", "HIGH"]
 LABEL_TO_INT = {label: idx for idx, label in enumerate(LABELS)}
@@ -44,53 +45,17 @@ class PredictionResult:
     risk_level: str
 
 
-def ensure_dataset(path: Path, rows: int = 500, seed: int = 42) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        return path
+def ensure_dataset(path: Path) -> Path:
+    """Validate that the dataset exists on disk.
 
-    df = generate_synthetic_dataset(rows=rows, seed=seed)
-    df.to_csv(path, index=False)
+    The demo uses committed CSV files under `data/`. We intentionally do NOT
+    auto-generate datasets here so behavior is predictable for demos.
+    """
+
+    if not path.exists():
+        raise FileNotFoundError(f"Dataset CSV not found: {path}")
+
     return path
-
-
-def generate_synthetic_dataset(rows: int = 500, seed: int = 42) -> pd.DataFrame:
-    rng = np.random.default_rng(seed)
-
-    sprint_velocity = rng.integers(10, 80, size=rows)
-    task_completion_rate = rng.integers(40, 100, size=rows)
-    team_utilization = rng.integers(60, 100, size=rows)
-    days_remaining = rng.integers(1, 15, size=rows)
-
-    df = pd.DataFrame(
-        {
-            "sprint_velocity": sprint_velocity,
-            "task_completion_rate": task_completion_rate,
-            "team_utilization": team_utilization,
-            "days_remaining": days_remaining,
-        }
-    )
-
-    df[LABEL_COLUMN] = df.apply(_derive_label, axis=1)
-    return df
-
-
-def _derive_label(row: pd.Series) -> str:
-    if row["sprint_velocity"] > 50 and row["task_completion_rate"] > 80 and row["team_utilization"] < 85:
-        label = "LOW"
-    elif (
-        30 <= row["sprint_velocity"] <= 50
-        and 60 <= row["task_completion_rate"] <= 80
-        and 85 <= row["team_utilization"] <= 95
-    ):
-        label = "MODERATE"
-    else:
-        label = "HIGH"
-
-    if row["days_remaining"] <= 3 and label != "HIGH":
-        label = "HIGH" if label == "MODERATE" else "MODERATE"
-
-    return label
 
 
 def train_model(data_path: Path, model_type: str = "logreg", seed: int = 42) -> ModelArtifacts:
@@ -109,7 +74,7 @@ def train_model(data_path: Path, model_type: str = "logreg", seed: int = 42) -> 
         model = RandomForestClassifier(n_estimators=200, random_state=seed)
         pipeline: Pipeline = Pipeline([("model", model)])
     else:
-        model = LogisticRegression(max_iter=1000, multi_class="multinomial")
+        model = LogisticRegression(max_iter=1000)
         pipeline = Pipeline([("scaler", StandardScaler()), ("model", model)])
         model_type = "logreg"
 

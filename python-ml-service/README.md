@@ -65,6 +65,28 @@ Training happens automatically on startup when ML mode is enabled.
 - GET /model
 - POST /predict
 
+## Day 4 Analytics APIs (for Recharts)
+
+These endpoints return ready-to-chart JSON.
+
+- GET /analytics/delay-risk-per-project
+  - Use for: "Delay risk % per project" (bar chart)
+- GET /analytics/at-risk-projects?threshold=70
+  - Use for: "At-risk projects list" (table)
+- GET /analytics/sprint-velocity?project_id=101
+  - Use for: "Sprint velocity trends" (line chart)
+- GET /analytics/developer-utilization?project_id=101
+  - Use for: "Developer utilization heatmap" (matrix-style chart)
+
+### PowerShell examples
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8001/analytics/delay-risk-per-project
+Invoke-RestMethod "http://127.0.0.1:8001/analytics/at-risk-projects?threshold=70"
+Invoke-RestMethod "http://127.0.0.1:8001/analytics/sprint-velocity?project_id=101"
+Invoke-RestMethod "http://127.0.0.1:8001/analytics/developer-utilization?project_id=101"
+```
+
 ### Example request
 
 ```json
