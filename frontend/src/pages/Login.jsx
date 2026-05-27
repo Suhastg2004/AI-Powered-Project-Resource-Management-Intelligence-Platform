@@ -3,20 +3,42 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const roleOptions = [
-  { id: 'Admin', title: 'Admin' },
-  { id: 'Manager', title: 'Manager' },
-  { id: 'Developer', title: 'Developer' }
+  { id: 'ADMIN', title: 'Admin' },
+  { id: 'MANAGER', title: 'Manager' },
+  { id: 'DEVELOPER', title: 'Developer' }
 ]
 
 export default function Login() {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
-  const [role, setRole] = useState('Admin')
+  const [role, setRole] = useState('ADMIN')
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault()
-    login({ name: `${role} User`, email: email || `${role.toLowerCase()}@demo.com`, role })
+    setError(null)
+
+    if (!email || !pass) {
+      setError('Email and password are required.')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      await login({
+        name: `${roleOptions.find(option => option.id === role)?.title || 'User'} User`,
+        email,
+        password: pass,
+        role
+      })
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -25,7 +47,7 @@ export default function Login() {
         <div className="mb-8 space-y-3 text-center">
           <p className="text-sm uppercase tracking-[0.3em]" style={{ color: 'var(--accent)' }}>Secure access</p>
           <h3 className="text-3xl font-semibold" style={{ color: 'var(--text-h)' }}>Sign in to RM Intelligence</h3>
-          <p style={{ color: 'var(--muted)' }}>Select a role and sign in.</p>
+          <p style={{ color: 'var(--muted)' }}>Authenticate with your workspace credentials.</p>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -51,6 +73,7 @@ export default function Login() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="Email"
+            type="email"
             className="w-full rounded-3xl px-4 py-3 focus:outline-none"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
           />
@@ -62,8 +85,12 @@ export default function Login() {
             className="w-full rounded-3xl px-4 py-3 focus:outline-none"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
           />
-          <button className="w-full rounded-3xl py-3 font-semibold transition" style={{ background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', color: 'var(--text-h)' }}>Sign in as {role}</button>
+          <button disabled={loading} className="w-full rounded-3xl py-3 font-semibold transition" style={{ background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', color: 'var(--text-h)' }}>
+            {loading ? 'Signing in...' : `Sign in as ${role}`}
+          </button>
         </form>
+
+        {error && <p className="mt-4 rounded-3xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
 
         <div className="mt-5 flex items-center justify-between text-sm" style={{ color: 'var(--muted)' }}>
           <Link to="/forgot-password" style={{ color: 'inherit' }} className="hover:opacity-90 transition">Forgot password?</Link>

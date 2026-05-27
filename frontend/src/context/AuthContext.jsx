@@ -1,7 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api } from '../services/api'
 
 const AuthContext = createContext()
+
+const normalizeRole = role => {
+  if (!role) return null
+  const normalized = role.toString().toUpperCase()
+  return {
+    ADMIN: 'Admin',
+    MANAGER: 'Manager',
+    DEVELOPER: 'Developer'
+  }[normalized] || role
+}
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null)
@@ -12,27 +23,50 @@ export const AuthProvider = ({ children }) => {
     const t = localStorage.getItem('rm_token')
     const u = localStorage.getItem('rm_user')
     if (t) setToken(t)
-    if (u) setUser(JSON.parse(u))
+    if (u) {
+      const savedUser = JSON.parse(u)
+      setUser({ ...savedUser, role: normalizeRole(savedUser.role) })
+    }
   }, [])
 
-  const login = (payload = { name: 'Demo User', role: 'Developer' }) => {
-    const fake = 'fake-jwt-token'
+  const login = async (payload = { name: 'Demo User', role: 'Developer' }) => {
+    const data = await api.post('/auth/login', {
+      email: payload.email,
+      password: payload.password
+    })
     const userPayload = {
       name: payload.name || payload.username || 'Demo User',
       email: payload.email || '',
       username: payload.username || '',
-      role: payload.role || 'Developer'
+      role: normalizeRole(payload.role || 'DEVELOPER')
     }
-    localStorage.setItem('rm_token', fake)
+
+    localStorage.setItem('rm_token', data.token)
     localStorage.setItem('rm_user', JSON.stringify(userPayload))
-    setToken(fake)
+    setToken(data.token)
     setUser(userPayload)
     navigate('/dashboard')
   }
 
-  const register = (payload = { name: 'New User', role: 'Developer' }) => {
-    // Simulate registration and return to login for explicit sign-in
-    navigate('/login')
+  const register = async (payload = { name: 'New User', role: 'Developer' }) => {
+    const data = await api.post('/auth/register', {
+      name: payload.name,
+      email: payload.email,
+      password: payload.password,
+      role: payload.role
+    })
+    const userPayload = {
+      name: payload.name || payload.username || 'New User',
+      email: payload.email || '',
+      username: payload.username || '',
+      role: normalizeRole(payload.role || 'DEVELOPER')
+    }
+
+    localStorage.setItem('rm_token', data.token)
+    localStorage.setItem('rm_user', JSON.stringify(userPayload))
+    setToken(data.token)
+    setUser(userPayload)
+    navigate('/dashboard')
   }
 
   const logout = () => {

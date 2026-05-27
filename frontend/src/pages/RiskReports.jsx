@@ -1,29 +1,80 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Card from '../components/Card'
-
-const risks = [
-  { id: 'r1', title: 'API Stability', score: 78, severity: 'medium' },
-  { id: 'r2', title: 'Resource Shortage', score: 92, severity: 'high' }
-]
+import { api } from '../services/api'
 
 export default function RiskReports() {
+  const [projects, setProjects] = useState([])
+  const [predictions, setPredictions] = useState({})
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    loadReports()
+  }, [])
+
+  const loadReports = async () => {
+    setLoading(true)
+    setMessage('')
+    try {
+      const projectData = await api.get('/projects')
+      setProjects(projectData)
+      await Promise.all(projectData.map(project => fetchPrediction(project.projectId)))
+    } catch (err) {
+      setMessage(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchPrediction = async projectId => {
+    try {
+      const prediction = await api.post(`/predict/${projectId}`, {})
+      setPredictions(prev => ({ ...prev, [projectId]: prediction }))
+    } catch (err) {
+      setPredictions(prev => ({ ...prev, [projectId]: { riskStatus: 'UNKNOWN', delayProbability: 0, recommendation: err.message } }))
+    }
+  }
+
   return (
-    <div>
-      <h3 className="text-xl font-semibold mb-4 text-[#3b2413]">Delay Risk Reports</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {risks.map(r => (
-          <Card key={r.id}>
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="font-semibold text-[#3b2413]">{r.title}</div>
-                <div className="text-sm text-[#7a5a48]">Severity: {r.severity}</div>
-              </div>
-              <div className="text-xl font-bold text-[#3b2413]">{r.score}</div>
-            </div>
-            <div className="mt-3 text-sm text-[#7a5a48]">AI Recommendation: Increase staffing and automate tests.</div>
-          </Card>
-        ))}
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h3 className="text-3xl font-semibold" style={{ color: 'var(--text)' }}>Delay Risk Reports</h3>
+          <p className="mt-1" style={{ color: 'var(--muted)' }}>AI-driven predictions for project delivery risk and recommended follow-ups.</p>
+        </div>
       </div>
+
+      {message && <Card style={{ background: 'var(--surface-strong)', border: '1px solid var(--border)' }}><p style={{ color: 'var(--text)' }}>{message}</p></Card>}
+
+      {loading ? (
+        <Card style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}><p style={{ color: 'var(--text)' }}>Loading risk reports...</p></Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {projects.map(project => {
+            const prediction = predictions[project.projectId]
+            return (
+              <Card key={project.projectId}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-semibold" style={{ color: 'var(--text-h)' }}>{project.name}</p>
+                    <p className="text-sm" style={{ color: 'var(--muted)' }}>Manager: {project.managerName || 'Unassigned'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold" style={{ color: 'var(--text-h)' }}>{prediction?.delayProbability ?? '–'}%</p>
+                    <p className="text-xs uppercase tracking-[0.14em]" style={{ color: 'var(--accent)' }}>{prediction?.riskStatus || 'Unknown'}</p>
+                  </div>
+                </div>
+                <div className="mt-4 text-sm" style={{ color: 'var(--muted)' }}>
+                  {prediction?.recommendation || 'No recommendation available yet.'}
+                </div>
+                <button type="button" className="mt-4 rounded-3xl px-4 py-2 text-sm font-semibold transition" style={{ background: 'var(--surface-strong)', border: '1px solid var(--border)', color: 'var(--text)' }} onClick={() => fetchPrediction(project.projectId)}>
+                  Refresh prediction
+                </button>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

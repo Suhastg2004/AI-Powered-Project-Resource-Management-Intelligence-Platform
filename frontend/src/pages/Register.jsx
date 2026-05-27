@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const roleOptions = [
-  { id: 'Admin', title: 'Admin' },
-  { id: 'Manager', title: 'Manager' },
-  { id: 'Developer', title: 'Developer' }
+  { id: 'ADMIN', title: 'Admin' },
+  { id: 'MANAGER', title: 'Manager' },
+  { id: 'DEVELOPER', title: 'Developer' }
 ]
 
 export default function Register() {
@@ -13,16 +13,34 @@ export default function Register() {
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('Admin')
+  const [role, setRole] = useState('ADMIN')
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  const handle = e => {
+  const handle = async e => {
     e.preventDefault()
-    register({
-      name: username || `${role} User`,
-      email,
-      username,
-      role
-    })
+    setError(null)
+
+    if (!email || !password) {
+      setError('Email and password are required.')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      await register({
+        name: username || `${roleOptions.find(option => option.id === role)?.title || 'User'} User`,
+        email,
+        username,
+        password,
+        role
+      })
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -64,7 +82,7 @@ export default function Register() {
           <input
             value={username}
             onChange={e => setUsername(e.target.value)}
-            placeholder="Username"
+            placeholder="Full name"
             className="w-full rounded-3xl px-4 py-3 focus:outline-none"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
           />
@@ -76,8 +94,12 @@ export default function Register() {
             className="w-full rounded-3xl px-4 py-3 focus:outline-none"
             style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
           />
-          <button className="w-full rounded-3xl py-3 font-semibold transition" style={{ background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', color: 'var(--text-h)' }}>Create {role} account</button>
+          <button disabled={loading} className="w-full rounded-3xl py-3 font-semibold transition" style={{ background: 'linear-gradient(90deg, var(--accent), var(--accent-2))', color: 'var(--text-h)' }}>
+            {loading ? 'Creating account...' : `Create ${role} account`}
+          </button>
         </form>
+
+        {error && <p className="mt-4 rounded-3xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>}
 
         <div className="mt-4 text-center">
           <Link to="/login" className="inline-flex items-center justify-center w-full rounded-3xl border px-4 py-3 text-sm font-semibold transition" style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--text)' }}>
