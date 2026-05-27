@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .class
 .env
 .venv
@@ -20,3 +21,8 @@ ptc.py
 .DS_Store 
 Thumbs.db 
  
+=======
+*.class
+**/node_modules/
+**/.env
+>>>>>>> b0b906a72ea367590e9e795972c6e1ecc6db178d
