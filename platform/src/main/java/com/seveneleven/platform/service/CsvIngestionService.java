@@ -117,7 +117,8 @@ public class CsvIngestionService {
 				p.setStatus(status);
 				p.setDelayRiskScore(delayRiskScore);
 				if (managerId != null) {
-					p.setManager(userRepository.findById(managerId).orElseThrow());
+					p.setManager(userRepository.findById(managerId)
+							.orElseThrow(() -> new IllegalArgumentException("Manager not found: id=" + managerId)));
 				}
 				projectRepository.save(p);
 			} catch (Exception ex) {
@@ -151,14 +152,16 @@ public class CsvIngestionService {
 					updated++;
 				}
 
-				Sprint sprint = sprintRepository.findById(sprintId).orElseThrow();
+				Sprint sprint = sprintRepository.findById(sprintId)
+					.orElseThrow(() -> new IllegalArgumentException("Sprint not found: id=" + sprintId));
 				t.setSprint(sprint);
 				t.setTitle(title);
 				t.setPriority(priority);
 				t.setStatus(status);
 				t.setStoryPoints(storyPoints);
 				if (assigneeId != null) {
-					t.setAssignee(userRepository.findById(assigneeId).orElseThrow());
+					t.setAssignee(userRepository.findById(assigneeId)
+							.orElseThrow(() -> new IllegalArgumentException("Assignee not found: id=" + assigneeId)));
 				}
 				taskRepository.save(t);
 			} catch (Exception ex) {
@@ -190,8 +193,10 @@ public class CsvIngestionService {
 				} else {
 					updated++;
 				}
-				res.setUser(userRepository.findById(userId).orElseThrow());
-				res.setProject(projectRepository.findById(projectId).orElseThrow());
+				res.setUser(userRepository.findById(userId)
+					.orElseThrow(() -> new IllegalArgumentException("User not found: id=" + userId)));
+				res.setProject(projectRepository.findById(projectId)
+					.orElseThrow(() -> new IllegalArgumentException("Project not found: id=" + projectId)));
 				res.setUtilizationPct(utilizationPct);
 				res.setAvailability(availability);
 				res.setFeedback(feedback);
@@ -203,17 +208,20 @@ public class CsvIngestionService {
 		return new UploadDtos.UploadResult(processed, inserted, updated, errors);
 	}
 
-	private Iterable<CSVRecord> parse(MultipartFile file) {
-		try {
-			BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
-			CSVParser parser = CSVFormat.DEFAULT
-					.builder()
-					.setHeader()
-					.setSkipHeaderRecord(true)
-					.setIgnoreHeaderCase(true)
-					.setTrim(true)
-					.build()
-					.parse(reader);
+	private List<CSVRecord> parse(MultipartFile file) {
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
+				CSVParser parser = CSVFormat.DEFAULT
+						.builder()
+						.setHeader()
+						.setSkipHeaderRecord(true)
+						.setIgnoreHeaderCase(true)
+						.setTrim(true)
+						.build()
+						.parse(reader)) {
+
+			if (parser.getHeaderMap() == null || parser.getHeaderMap().isEmpty()) {
+				throw new IllegalArgumentException("CSV missing header row");
+			}
 			return parser.getRecords();
 		} catch (Exception ex) {
 			throw new IllegalArgumentException("Invalid CSV file: " + ex.getMessage(), ex);
@@ -244,14 +252,22 @@ public class CsvIngestionService {
 		if (v == null || v.isBlank()) {
 			return null;
 		}
-		return Long.parseLong(v.trim());
+		try {
+			return Long.parseLong(v.trim());
+		} catch (NumberFormatException nfe) {
+			throw new IllegalArgumentException("Invalid number: '" + v + "'", nfe);
+		}
 	}
 
 	private Integer parseInt(String v) {
 		if (v == null || v.isBlank()) {
 			return null;
 		}
-		return Integer.parseInt(v.trim());
+		try {
+			return Integer.parseInt(v.trim());
+		} catch (NumberFormatException nfe) {
+			throw new IllegalArgumentException("Invalid number: '" + v + "'", nfe);
+		}
 	}
 
 	private <T extends Enum<T>> T parseEnum(String v, Class<T> enumClass, T defaultValue) {
