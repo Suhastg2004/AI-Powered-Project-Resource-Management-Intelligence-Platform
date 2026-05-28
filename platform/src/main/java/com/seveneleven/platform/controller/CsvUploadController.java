@@ -11,6 +11,7 @@ import com.seveneleven.platform.service.CsvIngestionService;
 
 @RestController
 @RequestMapping("/api/uploads")
+@CrossOrigin(origins = "*") // Allows your React frontend to call these endpoints
 public class CsvUploadController {
 
 	private final CsvIngestionService csvIngestionService;
@@ -41,5 +42,17 @@ public class CsvUploadController {
 	@PreAuthorize("hasRole('ADMIN') or hasRole('MANAGER')")
 	public ResponseEntity<UploadDtos.UploadResult> uploadResources(@RequestPart("file") MultipartFile file) {
 		return ResponseEntity.ok(csvIngestionService.uploadResources(file));
+	}
+
+	// Triggers the Python Pandas ETL Pipeline
+	@PostMapping(value = "/upload-csv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public ResponseEntity<?> uploadProjectData(@RequestParam("file") MultipartFile file) {
+		if (file.isEmpty()) {
+			// Fixed the string escaping syntax error here
+			return ResponseEntity.badRequest().body("{\"error\": \"Please select a valid CSV file to upload.\"}");
+		}
+		
+		String etlResult = csvIngestionService.processCsvData(file);
+		return ResponseEntity.ok(etlResult);
 	}
 }

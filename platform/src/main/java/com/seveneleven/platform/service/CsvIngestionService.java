@@ -10,8 +10,16 @@ import java.util.Locale;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.seveneleven.platform.dto.UploadDtos;
@@ -30,6 +38,9 @@ import com.seveneleven.platform.repository.SprintRepository;
 import com.seveneleven.platform.repository.TaskRepository;
 import com.seveneleven.platform.repository.UserRepository;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class CsvIngestionService {
 
@@ -39,19 +50,26 @@ public class CsvIngestionService {
 	private final TaskRepository taskRepository;
 	private final ResourceRepository resourceRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final RestTemplate restTemplate;
 
+	@Value("${python.etl.service.url}")
+	private String pythonEtlUrl;
+	private static final org.slf4j.Logger log =
+		    org.slf4j.LoggerFactory.getLogger(CsvIngestionService.class);
 	public CsvIngestionService(UserRepository userRepository,
 			ProjectRepository projectRepository,
 			SprintRepository sprintRepository,
 			TaskRepository taskRepository,
 			ResourceRepository resourceRepository,
-			PasswordEncoder passwordEncoder) {
+			PasswordEncoder passwordEncoder,
+			RestTemplate restTemplate) {
 		this.userRepository = userRepository;
 		this.projectRepository = projectRepository;
 		this.sprintRepository = sprintRepository;
 		this.taskRepository = taskRepository;
 		this.resourceRepository = resourceRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.restTemplate = restTemplate;
 	}
 
 	public UploadDtos.UploadResult uploadUsers(MultipartFile file) {
@@ -278,5 +296,36 @@ public class CsvIngestionService {
 		normalized = normalized.replace(' ', '_');
 		normalized = normalized.replace('-', '_');
 		return Enum.valueOf(enumClass, normalized);
+	}
+
+	public String processCsvData(MultipartFile file) {
+		log.info("Forwarding CSV file '{}' to Python ETL Service", file.getOriginalFilename());
+
+		try {
+			// 1. Set up Multipart Headers
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+			// 2. Attach the file to the body
+			MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+			body.add("file", file.getResource());
+
+			// 3. Create the HTTP request
+			HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+			// 4. Send POST request to FastAPI
+			ResponseEntity<String> response = restTemplate.postForEntity(
+					pythonEtlUrl, 
+					requestEntity, 
+					String.class
+			);
+
+			log.info("ETL Pipeline completed successfully.");
+			return response.getBody();
+
+		} catch (Exception e) {
+			//log.error("Failed to process CSV via Python ETL", e);
+			throw new RuntimeException("ETL Processing failed: " + e.getMessage());
+		}
 	}
 }
