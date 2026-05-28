@@ -74,7 +74,8 @@ public class TaskService {
             Map<String, Object> payload = Map.of(
                     "taskId", savedTask.getTaskId(),
                     "developerId", savedTask.getAssignee() != null ? savedTask.getAssignee().getId() : "Unassigned",
-                    "title", savedTask.getTitle());
+                    "title", savedTask.getTitle()
+            );
 
             restClient.post()
                     .uri(nodeBaseUrl + "/api/notify/task-assigned")

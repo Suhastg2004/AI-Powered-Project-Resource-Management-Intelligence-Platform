@@ -14,46 +14,47 @@ import com.seveneleven.platform.repository.ProjectRepository;
 @Service
 public class PredictionService {
 
-	private final RestClient restClient;
-	private final String mlBaseUrl;
-	private final ProjectRepository projectRepository;
-	private final PredictionRepository predictionRepository;
+    private final RestClient restClient;
+    private final String mlBaseUrl;
+    private final ProjectRepository projectRepository;
+    private final PredictionRepository predictionRepository;
 
-	public PredictionService(RestClient restClient,
-			@Value("${app.ml.base-url}") String mlBaseUrl,
-			ProjectRepository projectRepository,
-			PredictionRepository predictionRepository) {
-		this.restClient = restClient;
-		this.mlBaseUrl = mlBaseUrl;
-		this.projectRepository = projectRepository;
-		this.predictionRepository = predictionRepository;
-	}
+    public PredictionService(RestClient restClient,
+            @Value("${app.ml.base-url}") String mlBaseUrl,
+            ProjectRepository projectRepository,
+            PredictionRepository predictionRepository) {
+        this.restClient = restClient;
+        this.mlBaseUrl = mlBaseUrl;
+        this.projectRepository = projectRepository;
+        this.predictionRepository = predictionRepository;
+    }
 
-	public Prediction predict(Long projectId, PredictionDtos.MlRequest request) {
-		PredictionDtos.MlRequest payload = request != null ? request : new PredictionDtos.MlRequest(42, 68, 91, 5);
+    public Prediction predict(Long projectId, PredictionDtos.MlRequest request) {
+        PredictionDtos.MlRequest payload = request != null ? request : new PredictionDtos.MlRequest(42, 68, 91, 5);
 
-		PredictionDtos.MlResponse ml = restClient.post()
-				.uri(mlBaseUrl + "/predict")
-				.body(payload)
-				.retrieve()
-				.body(PredictionDtos.MlResponse.class);
+        PredictionDtos.MlResponse ml = restClient.post()
+                .uri(mlBaseUrl + "/predict")
+                .body(payload)
+                .retrieve()
+                .body(PredictionDtos.MlResponse.class);
 
-		if (ml == null) {
-			throw new IllegalStateException("ML service returned empty response");
-		}
+        if (ml == null) {
+            throw new IllegalStateException("ML service returned empty response");
+        }
 
-		var project = projectRepository.findById(projectId).orElseThrow();
-		Prediction p = new Prediction();
-		p.setProject(project);
-		p.setDelayProbability(ml.delay_probability());
-		p.setRiskStatus(ml.status());
-		p.setRecommendation("Review sprint plan and rebalance workload if needed");
-		Prediction saved = predictionRepository.save(p);
+        var project = projectRepository.findById(projectId).orElseThrow();
+        Prediction p = new Prediction();
+        p.setProject(project);
+        p.setDelayProbability(ml.delay_probability());
+        p.setRiskStatus(ml.status());
+        p.setRecommendation("Review sprint plan and rebalance workload if needed");
+        Prediction saved = predictionRepository.save(p);
 
-		// optionally also store last score on project for dashboards
-		project.setDelayRiskScore(ml.delay_probability());
-		projectRepository.save(project);
-		try {
+        // optionally also store last score on project for dashboards
+        project.setDelayRiskScore(ml.delay_probability());
+        projectRepository.save(project);
+
+        try {
             Map<String, Object> notificationPayload = Map.of(
                 "projectId", projectId,
                 "delay_probability", ml.delay_probability(),
@@ -71,6 +72,6 @@ public class PredictionService {
             System.err.println("Failed to alert Node service: " + e.getMessage());
         }
 
-		return saved;
-	}
+        return saved;
+    }
 }
