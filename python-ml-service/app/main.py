@@ -1,11 +1,10 @@
 import os
 from pathlib import Path
 from typing import Literal
-
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-
+from app.analytics import analytics_router, run_etl_pipeline
 from app.ml_model import (
     DEFAULT_DATASET_PATH,
     ensure_dataset,
@@ -29,6 +28,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(analytics_router)
 
 PREDICTION_MODE = os.getenv("PREDICTION_MODE", "RULE_BASED").upper()
 ML_MODEL_TYPE = os.getenv("ML_MODEL", "logreg").lower()
@@ -200,3 +201,4 @@ def predict_delay_risk(payload: PredictionRequest) -> PredictionResponse:
         )
 
     return rule_based_prediction(payload)
+
