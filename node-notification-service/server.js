@@ -50,11 +50,23 @@ const verifyApiKey = (req, res, next) => {
 // MICROSERVICE ENDPOINTS (Protected)(using api key)
 
 app.post('/api/notify/task-assigned', verifyApiKey, (req, res) => {
-    const { taskId, developerId, title } = req.body;
-    io.emit('taskAssigned', { taskId, developerId, message: `New task assigned: ${title}` });
-    res.status(200).json({ success: true, message: 'Broadcasted securely' });
-});
 
+    console.log("TASK ASSIGNED RECEIVED");
+    console.log(req.body);
+
+    const { taskId, developerId, title } = req.body;
+
+    io.emit('taskAssigned', {
+        taskId,
+        developerId,
+        message: `New task assigned: ${title}`
+    });
+
+    res.status(200).json({
+        success: true,
+        message: 'Broadcasted securely'
+    });
+});
 app.post('/api/notify/task-status', verifyApiKey, (req, res) => {
     const { taskId, status } = req.body;
     io.emit('taskStatusUpdated', { taskId, status, message: `Task ${taskId} moved to ${status}` });
