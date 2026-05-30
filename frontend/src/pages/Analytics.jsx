@@ -36,7 +36,7 @@ export default function Analytics() {
 
       // 2. Fetch utilization data directly from Python ML Service
       try {
-        const utilRes = await axios.get('http://localhost:8000/analytics/developer-utilization')
+        const utilRes = await axios.get('http://13.207.55.199:8000/analytics/developer-utilization')
         setUtilization(utilRes.data)
       } catch (pythonErr) {
         console.warn("Python service not reachable for utilization data:", pythonErr)
