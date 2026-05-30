@@ -76,13 +76,16 @@ public class TaskService {
                     "developerId", savedTask.getAssignee() != null ? savedTask.getAssignee().getId() : "Unassigned",
                     "title", savedTask.getTitle()
             );
-
-            restClient.post()
+            System.out.println("INSIDE NOTIFICATION BLOCK");
+            System.out.println("NODE URL = " + nodeBaseUrl);
+            System.out.println("NODE API KEY = " + nodeApiKey);
+            var response= restClient.post()
                     .uri(nodeBaseUrl + "/api/notify/task-assigned")
                     .header("x-api-key", nodeApiKey)
                     .body(payload)
                     .retrieve()
                     .toBodilessEntity();
+            System.out.println("NODE RESPONSE = " + response.getStatusCode());
         } catch (Exception e) {
             // Log error but don't fail the transaction if notification service is down
             System.err.println("Failed to send notification to Node service: " + e.getMessage());
