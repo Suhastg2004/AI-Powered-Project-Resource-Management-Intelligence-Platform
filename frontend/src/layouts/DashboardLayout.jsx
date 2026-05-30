@@ -15,7 +15,7 @@ import Navbar from '../components/Navbar';
 
 // 1. Initialize the socket connection to your Node.js microservice
 
-const socket = io('http://localhost:5000', {
+const socket = io('http://13.207.55.199:5000', {
 
   autoConnect: false // We will connect it manually when the component mounts
 
@@ -32,7 +32,9 @@ export default function DashboardLayout() {
     // 2. Open the connection when the user hits the dashboard
 
     socket.connect();
-
+    socket.on('connect_error', (err) => {
+      console.error('Socket Connection Error:', err);
+    });
 
 
     socket.on('connect', () => {
