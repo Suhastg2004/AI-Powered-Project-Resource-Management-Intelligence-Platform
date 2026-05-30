@@ -1,6 +1,5 @@
-
-const API_BASE = import.meta.env.VITE_API_BASE || '/api'
-
+const API_BASE =
+  import.meta.env.VITE_API_BASE || 'http://35.154.124.181:8080/api'
 
 
 const getToken = () => localStorage.getItem('rm_token')
