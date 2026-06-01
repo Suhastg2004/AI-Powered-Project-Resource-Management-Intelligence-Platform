@@ -1,0 +1,6 @@
+name,manager_id,status,delay_risk_score
+Project Aurora,101,Active,12
+Retail Refresh,102,At Risk,78
+Supply Sync,103,On Hold,55
+Mobile Checkout,104,Active,34
+Inventory Insight,105,At Risk,82
